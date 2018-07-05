@@ -9,19 +9,16 @@ index = ['MU','GE','AMD','BAC']
 
 def main():
     stocks = pd.DataFrame()
-    i = 0
-    while i < len(index):
-        r = requests.get('https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=' + str(
-            index[i]) + '&datatype=csv&apikey=603MDIJGG9TGNV60').content
+    for ticker in index:
+        r = requests.get('https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={}&datatype=csv&apikey=603MDIJGG9TGNV60'.format(ticker)).content
         df = pd.read_csv(io.StringIO(r.decode()))
         df.set_index('timestamp', inplace=True)
         df = df.drop(columns=['high', 'low', 'close', 'volume'])
-        df = df.rename(columns={'open': str(index[i])})
+        df = df.rename(columns={'open': ticker})
         if stocks.empty:
             stocks = df
         else:
             stocks = stocks.join(df)
-        i += 1
 
     py.plot({
         "data": [go.Scatter(
