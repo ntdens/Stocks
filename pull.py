@@ -2,6 +2,8 @@ import argparse as ag
 from datetime import date, timedelta
 import pandas as pd
 from alpha_vantage.timeseries import TimeSeries
+import plotly.offline as py
+import plotly.graph_objs as go
 
 
 def main():
@@ -63,7 +65,7 @@ def main():
     if args.mode_change:
         print('Change in Values:')
         stocks.loc['Change'] = stocks.iloc[0] - stocks.iloc[-1]
-        print (stocks.loc['Change'])
+        print(stocks.loc['Change'])
 
     if args.mode_all:
         print('Peak Values:')
@@ -76,16 +78,16 @@ def main():
         print(stocks.iloc[-1])
         print('Change in Values:')
         stocks.loc['Change'] = stocks.iloc[0] - stocks.iloc[-1]
-        print (stocks.loc['Change'])
+        print(stocks.loc['Change'])
 
-#    py.plot({
-#        "data": [go.Scatter(
-#            x=stocks.index,
-#            y=stocks[col],
-#            name=col)
-#            for col in stocks.columns],
-#        "layout": go.Layout(title="Daily Openings")
-#    }, auto_open=True)
+    py.plot({
+        "data": [go.Scatter(
+            x=stocks.index,
+            y=stocks[col],
+            name=col)
+            for col in stocks.columns],
+        "layout": go.Layout(title="Daily Openings")
+    }, auto_open=True)
 
 
 if __name__ == '__main__':
