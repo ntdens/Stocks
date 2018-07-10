@@ -32,27 +32,35 @@ def main():
         end_date = end_date.strftime('%Y-%m-%d')
 
     tracer = {}
-    stocks = pd.DataFrame()
+    ticklist = []
+    mulstock = {}
     for ticker in index:
         ts = TimeSeries(key='603MDIJGG9TGNV60', output_format='pandas')
         data, metadata = ts.get_daily(symbol='{}'.format(ticker))
         df = data
         df = df.drop(['5. volume'], axis=1)
         df = df.rename(
-            columns={'1. open': '{} open'.format(ticker), '2. high': '{} high'.format(ticker), '3. low': '{} low'.format(ticker),
-                     '4. close': '{} close'.format(ticker)})
+            columns={'1. open': 'Open', '2. high': 'High', '3. low': 'Low', '4. close': 'Close'})
         tracer[ticker] = go.Ohlc(
             x=df.index,
-            open=df['{} open'.format(ticker)],
-            high=df['{} high'.format(ticker)],
-            low=df['{} low'.format(ticker)],
-            close=df['{} close'.format(ticker)],
+            open=df.Open,
+            high=df.High,
+            low=df.Low,
+            close=df.Close,
             name=ticker)
-        if stocks.empty:
-            stocks = df
-        else:
-            stocks = stocks.join(df)
+        ticklist.append(ticker)
+        df = df.transpose()
+        df.index.name = 'Prices'
+        mulstock[ticker] = df
 
+    iterables = [ticklist, ['Open', 'High', 'Low', 'Close']]
+    mulindex = pd.MultiIndex.from_product(iterables, names=['Stocks', 'Prices'])
+    stockm = pd.DataFrame(index=mulindex)
+    for k in mulstock:
+        df1 = mulstock[k]
+        stocks = df1.join(stockm, how='inner')
+    stocks = stocks.transpose()
+    stocks.index.name = 'Date'
     stocks = stocks.loc[start_date:end_date]
     print(stocks)
 
@@ -99,7 +107,6 @@ def main():
     #     "layout": go.Layout(title="Daily Openings")
     # }, auto_open=True)
 
-
     for k in tracer:
         layout = go.Layout(
             title=k,
@@ -113,7 +120,7 @@ def main():
         tracer[k].update(stock_update)
         data = [tracer[k]]
         fig = go.Figure(data=data, layout=layout)
-        py.plot(fig, filename=k, auto_open=True)
+        py.plot(fig, filename=str(k) + '.html', auto_open=True)
 
 
 if __name__ == '__main__':
