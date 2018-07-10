@@ -4,6 +4,7 @@ import pandas as pd
 from alpha_vantage.timeseries import TimeSeries
 import plotly.offline as py
 import plotly.graph_objs as go
+from tabulate import tabulate
 
 
 def main():
@@ -106,15 +107,17 @@ def main():
         print(stocks.loc['Change'])
 
     if args.plot_line:
-        line = stocks.xs
-        print(line)
-        # py.plot({
-        #     "data": [go.Scatter(
-        #         x=stocks.index,
-        #         y=stocks[tick, 'Open'],
-        #         name=tick)],
-        #     "layout": go.Layout(title="Daily Openings")
-        # }, auto_open=True)
+        stocks = stocks.transpose()
+        line = stocks.xs('Open', level='Price')
+        line = line.transpose()
+        py.plot({
+            "data": [go.Scatter(
+                x=line.index,
+                y=line[col],
+                name=col)
+                for col in line.columns],
+            "layout": go.Layout(title="Daily Openings")
+        }, auto_open=True)
 
     if args.plot_ohlc:
         for k in ohlc:
@@ -132,6 +135,31 @@ def main():
             fig = go.Figure(data=data, layout=layout)
             py.plot(fig, filename=str(k) + '.html', auto_open=True)
 
+    if args.plot_combined:
+        dataline = {}
+        for k in tick:
+            layout = go.Layout(
+                title=k,
+                xaxis = dict(
+                rangeslider=dict(
+                    visible=False
+                    )
+                )
+            )
+            stock_update = go.Ohlc(x=stocks.index)
+            ohlc[k].update(stock_update)
+            dataline[k] = go.Scatter(
+                x=stocks.index,
+                y=stocks[k, "Open"],
+                name= 'Trend',
+                line={'shape': 'spline', 'smoothing': 1})
+            data = [ohlc[k], dataline[k]]
+            fig = go.Figure(data=data, layout=layout)
+            py.plot(fig, filename=str(k) + '.html', auto_open=True)
+
+
+    if args.plot_table:
+        print(tabulate(stocks, tablefmt='psql'))
 
 if __name__ == '__main__':
     main()
