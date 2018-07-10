@@ -31,13 +31,23 @@ def main():
         end_date = date.today()
         end_date = end_date.strftime('%Y-%m-%d')
 
+    tracer = {}
     stocks = pd.DataFrame()
     for ticker in index:
         ts = TimeSeries(key='603MDIJGG9TGNV60', output_format='pandas')
         data, metadata = ts.get_daily(symbol='{}'.format(ticker))
         df = data
-        df = df.drop(['2. high', '3. low', '4. close', '5. volume'], axis=1)
-        df = df.rename(columns={'1. open': ticker})
+        df = df.drop(['5. volume'], axis=1)
+        df = df.rename(
+            columns={'1. open': '{} open'.format(ticker), '2. high': '{} high'.format(ticker), '3. low': '{} low'.format(ticker),
+                     '4. close': '{} close'.format(ticker)})
+        tracer[ticker] = go.Ohlc(
+            x=df.index,
+            open=df['{} open'.format(ticker)],
+            high=df['{} high'.format(ticker)],
+            low=df['{} low'.format(ticker)],
+            close=df['{} close'.format(ticker)],
+            name=ticker)
         if stocks.empty:
             stocks = df
         else:
@@ -80,14 +90,30 @@ def main():
         stocks.loc['Change'] = stocks.iloc[0] - stocks.iloc[-1]
         print(stocks.loc['Change'])
 
-    py.plot({
-        "data": [go.Scatter(
-            x=stocks.index,
-            y=stocks[col],
-            name=col)
-            for col in stocks.columns],
-        "layout": go.Layout(title="Daily Openings")
-    }, auto_open=True)
+    # py.plot({
+    #     "data": [go.Scatter(
+    #         x=stocks.index,
+    #         y=stocks[col],
+    #         name=col)
+    #         for col in stocks.columns],
+    #     "layout": go.Layout(title="Daily Openings")
+    # }, auto_open=True)
+
+
+    for k in tracer:
+        layout = go.Layout(
+            title=k,
+            xaxis = dict(
+            rangeslider=dict(
+                visible=False
+                )
+            )
+        )
+        stock_update = go.Ohlc(x=stocks.index)
+        tracer[k].update(stock_update)
+        data = [tracer[k]]
+        fig = go.Figure(data=data, layout=layout)
+        py.plot(fig, filename=k, auto_open=True)
 
 
 if __name__ == '__main__':
