@@ -20,6 +20,11 @@ def main():
     mode.add_argument('--mode-change', action='store_true',
                       help='Prints out the change between the last and the earliest')
     mode.add_argument('--mode-all', action='store_true', help='Prints all of the above')
+    plot = parser.add_mutually_exclusive_group()
+    plot.add_argument('--plot-line', action='store_true', help='Creates a line graph of the data')
+    plot.add_argument('--plot-ohlc', action='store_true', help='Creates OHLC graphs of the data')
+    plot.add_argument('--plot-combined', action='store_true', help='Creates combined OHLC and line graphs of the data')
+    plot.add_argument('--plot-table', action='store_true', help='Creates a table based on the data')
     args = parser.parse_args()
     index = args.stocks
     start_date = args.start
@@ -31,9 +36,9 @@ def main():
         end_date = date.today()
         end_date = end_date.strftime('%Y-%m-%d')
 
-    tracer = {}
-    ticklist = []
+    ohlc = {}
     mulstock = {}
+    tick = []
     for ticker in index:
         ts = TimeSeries(key='603MDIJGG9TGNV60', output_format='pandas')
         data, metadata = ts.get_daily(symbol='{}'.format(ticker))
@@ -41,26 +46,28 @@ def main():
         df = df.drop(['5. volume'], axis=1)
         df = df.rename(
             columns={'1. open': 'Open', '2. high': 'High', '3. low': 'Low', '4. close': 'Close'})
-        tracer[ticker] = go.Ohlc(
+        ohlc[ticker] = go.Ohlc(
             x=df.index,
             open=df.Open,
             high=df.High,
             low=df.Low,
             close=df.Close,
             name=ticker)
-        ticklist.append(ticker)
         df = df.transpose()
-        df.index.name = 'Prices'
+        df['Stocks'] = ticker
+        df.index.name = 'Price'
+        df = df.set_index(['Stocks', df.index])
+        df = df.transpose()
+        df.index.name = 'Date'
         mulstock[ticker] = df
+        tick.append(ticker)
 
-    iterables = [ticklist, ['Open', 'High', 'Low', 'Close']]
-    mulindex = pd.MultiIndex.from_product(iterables, names=['Stocks', 'Prices'])
-    stockm = pd.DataFrame(index=mulindex)
+    stocks = pd.DataFrame()
     for k in mulstock:
-        df1 = mulstock[k]
-        stocks = df1.join(stockm, how='inner')
-    stocks = stocks.transpose()
-    stocks.index.name = 'Date'
+        if stocks.empty:
+            stocks = mulstock[k]
+        else:
+            stocks = stocks.join(mulstock[k])
     stocks = stocks.loc[start_date:end_date]
     print(stocks)
 
@@ -98,29 +105,32 @@ def main():
         stocks.loc['Change'] = stocks.iloc[0] - stocks.iloc[-1]
         print(stocks.loc['Change'])
 
-    # py.plot({
-    #     "data": [go.Scatter(
-    #         x=stocks.index,
-    #         y=stocks[col],
-    #         name=col)
-    #         for col in stocks.columns],
-    #     "layout": go.Layout(title="Daily Openings")
-    # }, auto_open=True)
+    if args.plot_line:
+        line = stocks.xs
+        print(line)
+        # py.plot({
+        #     "data": [go.Scatter(
+        #         x=stocks.index,
+        #         y=stocks[tick, 'Open'],
+        #         name=tick)],
+        #     "layout": go.Layout(title="Daily Openings")
+        # }, auto_open=True)
 
-    for k in tracer:
-        layout = go.Layout(
-            title=k,
-            xaxis = dict(
-            rangeslider=dict(
-                visible=False
+    if args.plot_ohlc:
+        for k in ohlc:
+            layout = go.Layout(
+                title=k,
+                xaxis = dict(
+                rangeslider=dict(
+                    visible=False
+                    )
                 )
             )
-        )
-        stock_update = go.Ohlc(x=stocks.index)
-        tracer[k].update(stock_update)
-        data = [tracer[k]]
-        fig = go.Figure(data=data, layout=layout)
-        py.plot(fig, filename=str(k) + '.html', auto_open=True)
+            stock_update = go.Ohlc(x=stocks.index)
+            ohlc[k].update(stock_update)
+            data = [ohlc[k]]
+            fig = go.Figure(data=data, layout=layout)
+            py.plot(fig, filename=str(k) + '.html', auto_open=True)
 
 
 if __name__ == '__main__':
