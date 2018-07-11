@@ -4,8 +4,8 @@ import pandas as pd
 from alpha_vantage.timeseries import TimeSeries
 import plotly.offline as py
 import plotly.graph_objs as go
+from plotly import tools
 import plotly.figure_factory as ff
-
 
 def main():
     parser = ag.ArgumentParser(prog='pull', description='Pulls stock data from AlphaVantage.co')
@@ -24,8 +24,9 @@ def main():
     plot = parser.add_mutually_exclusive_group()
     plot.add_argument('--plot-line', action='store_true', help='Creates a line graph of the data')
     plot.add_argument('--plot-ohlc', action='store_true', help='Creates OHLC graphs of the data')
-    plot.add_argument('--plot-combined', action='store_true', help='Creates combined OHLC and line graphs of the data')
+    plot.add_argument('--plot-trend', action='store_true', help='Creates combined OHLC and line graphs of the data')
     plot.add_argument('--plot-table', action='store_true', help='Creates a table based on the data')
+    plot.add_argument('--plot-cohlc', action='store_true', help='Create a single combined OHLC graph')
     args = parser.parse_args()
     index = args.stocks
     start_date = args.start
@@ -69,8 +70,6 @@ def main():
     stocks = stocks.loc[start_date:end_date]
     print(stocks)
 
-    stocks.loc['Change'] = stocks.iloc[0] - stocks.iloc[-1]
-
     if args.mode_high:
         print('Peak Values:\n', stocks.max())
 
@@ -84,6 +83,7 @@ def main():
         print('Earliest Values:\n', stocks.iloc[-1])
 
     if args.mode_change:
+        stocks.loc['Change'] = stocks.iloc[0] - stocks.iloc[-1]
         print('Change in Values:\n', stocks.loc['Change'])
 
     if args.mode_all:
@@ -91,6 +91,7 @@ def main():
         print('Lowest Values:\n', stocks.min())
         print('Latest Values:\n', stocks.iloc[0])
         print('Earliest Values:\n', stocks.iloc[-1])
+        stocks.loc['Change'] = stocks.iloc[0] - stocks.iloc[-1]
         print('Change in Values:\n', stocks.loc['Change'])
 
     if args.plot_line:
@@ -99,14 +100,14 @@ def main():
     if args.plot_ohlc:
         oplot(start_date, end_date, ohlc)
 
-    if args.plot_combined:
+    if args.plot_trend:
         combined(stocks, ohlc, start_date, end_date, tick)
 
     if args.plot_table:
-        table = ff.create_table(stocks)
-        py.plot(table, filename='pandas_table.html', auto_open=True)
+        table(stocks)
 
-
+    if args.plot_cohlc:
+        cohlc(start_date, end_date, ohlc)
 
 def line(stocks):
     draw = stocks.xs('Open', level='Price', axis=1)
@@ -158,18 +159,35 @@ def combined(stocks, ohlc, start_date, end_date, tick):
         py.plot(fig, filename=str(k) + '.html', auto_open=True)
 
 
-# def table(stocks):
-#     cstocks = stocks.to_csv()
-#     trace = go.Table(
-#         header=dict(values=list(stocks.columns),
-#                     fill=dict(color='#C2D4FF'),
-#                     align=['left'] * 5),
-#         cells=dict(values=[cstocks.T, cstocks.ATVI, cstocks.MSFT],
-#                    fill=dict(color='#F5F8FF'),
-#                    align=['left'] * 5))
-#
-#     data = [trace]
-#     py.plot(data, filename='pandas_table.html', auto_open=True)
+def table(stocks):
+    stocks.reset_index(level=0, inplace=True)
+    trace = go.Table(
+        header=dict(values=list(stocks.columns),
+                    fill=dict(color='#C2D4FF'),
+                    align=['left'] * 5),
+        cells=dict(values=[stocks[k].tolist() for k in stocks.columns],
+                    fill=dict(color='#F5F8FF'),
+                    align=['left'] * 5))
+    data = [trace]
+    py.plot(data, filename='pandas_table.html', auto_open=True)
+
+
+def cohlc(start_date, end_date, ohlc):
+
+
+    layout1 = dict(
+        title='OHLC Charts for Stocks',
+            xaxis=dict(
+                range=[start_date, end_date],
+                rangeslider=dict(
+                    visible=False
+                )
+            )
+        )
+
+    data = [ohlc[k] for k in ohlc]
+    fig1 = dict(data=data, layout=layout1)
+    py.plot(fig1, filename='table-right-aligned-plots.html', auto_open=True)
 
 
 if __name__ == '__main__':
