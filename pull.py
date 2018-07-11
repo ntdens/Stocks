@@ -4,7 +4,7 @@ import pandas as pd
 from alpha_vantage.timeseries import TimeSeries
 import plotly.offline as py
 import plotly.graph_objs as go
-from tabulate import tabulate
+import plotly.figure_factory as ff
 
 
 def main():
@@ -65,101 +65,112 @@ def main():
 
     stocks = pd.DataFrame()
     for k in mulstock:
-        if stocks.empty:
-            stocks = mulstock[k]
-        else:
-            stocks = stocks.join(mulstock[k])
+        stocks = mulstock[k] if stocks.empty else stocks.join(mulstock[k])
     stocks = stocks.loc[start_date:end_date]
     print(stocks)
 
+    stocks.loc['Change'] = stocks.iloc[0] - stocks.iloc[-1]
+
     if args.mode_high:
-        print('Peak Values:')
-        print(stocks.max())
+        print('Peak Values:\n', stocks.max())
 
     if args.mode_low:
-        print('Lowest Values:')
-        print(stocks.min())
+        print('Lowest Values:\n', stocks.min())
 
     if args.mode_last:
-        print('Latest Values:')
-        print(stocks.iloc[0])
+        print('Latest Values:\n', stocks.iloc[0])
 
     if args.mode_earliest:
-        print('Earliest Values:')
-        print(stocks.iloc[-1])
+        print('Earliest Values:\n', stocks.iloc[-1])
 
     if args.mode_change:
-        print('Change in Values:')
-        stocks.loc['Change'] = stocks.iloc[0] - stocks.iloc[-1]
-        print(stocks.loc['Change'])
+        print('Change in Values:\n', stocks.loc['Change'])
 
     if args.mode_all:
-        print('Peak Values:')
-        print(stocks.max())
-        print('Lowest Values:')
-        print(stocks.min())
-        print('Latest Values:')
-        print(stocks.iloc[0])
-        print('Earliest Values:')
-        print(stocks.iloc[-1])
-        print('Change in Values:')
-        stocks.loc['Change'] = stocks.iloc[0] - stocks.iloc[-1]
-        print(stocks.loc['Change'])
+        print('Peak Values:\n', stocks.max())
+        print('Lowest Values:\n', stocks.min())
+        print('Latest Values:\n', stocks.iloc[0])
+        print('Earliest Values:\n', stocks.iloc[-1])
+        print('Change in Values:\n', stocks.loc['Change'])
 
     if args.plot_line:
-        stocks = stocks.transpose()
-        line = stocks.xs('Open', level='Price')
-        line = line.transpose()
-        py.plot({
-            "data": [go.Scatter(
-                x=line.index,
-                y=line[col],
-                name=col)
-                for col in line.columns],
-            "layout": go.Layout(title="Daily Openings")
-        }, auto_open=True)
+        line(stocks)
 
     if args.plot_ohlc:
-        for k in ohlc:
-            layout = go.Layout(
-                title=k,
-                xaxis = dict(
-                rangeslider=dict(
-                    visible=False
-                    )
-                )
-            )
-            stock_update = go.Ohlc(x=stocks.index)
-            ohlc[k].update(stock_update)
-            data = [ohlc[k]]
-            fig = go.Figure(data=data, layout=layout)
-            py.plot(fig, filename=str(k) + '.html', auto_open=True)
+        oplot(start_date, end_date, ohlc)
 
     if args.plot_combined:
-        dataline = {}
-        for k in tick:
-            layout = go.Layout(
-                title=k,
-                xaxis = dict(
-                rangeslider=dict(
-                    visible=False
-                    )
-                )
-            )
-            stock_update = go.Ohlc(x=stocks.index)
-            ohlc[k].update(stock_update)
-            dataline[k] = go.Scatter(
-                x=stocks.index,
-                y=stocks[k, "Open"],
-                name= 'Trend',
-                line={'shape': 'spline', 'smoothing': 1})
-            data = [ohlc[k], dataline[k]]
-            fig = go.Figure(data=data, layout=layout)
-            py.plot(fig, filename=str(k) + '.html', auto_open=True)
-
+        combined(stocks, ohlc, start_date, end_date, tick)
 
     if args.plot_table:
-        print(tabulate(stocks, tablefmt='psql'))
+        table = ff.create_table(stocks)
+        py.plot(table, filename='pandas_table.html', auto_open=True)
+
+
+
+def line(stocks):
+    draw = stocks.xs('Open', level='Price', axis=1)
+    py.plot({
+        "data": [go.Scatter(
+            x=draw.index,
+            y=draw[col],
+            name=col)
+            for col in draw.columns],
+        "layout": go.Layout(title="Daily Openings")
+    }, auto_open=True)
+
+
+def oplot(start_date, end_date, ohlc):
+    for k in ohlc:
+        layout = go.Layout(
+            title=k,
+            xaxis=dict(
+                range=[start_date, end_date],
+                rangeslider=dict(
+                    visible=False
+                )
+            )
+        )
+        data = [ohlc[k]]
+        fig = go.Figure(data=data, layout=layout)
+        py.plot(fig, filename=str(k) + '.html', auto_open=True)
+
+
+def combined(stocks, ohlc, start_date, end_date, tick):
+    dataline = {}
+    for k in tick:
+        layout = go.Layout(
+            title=k,
+            xaxis=dict(
+                range=[start_date, end_date],
+                rangeslider=dict(
+                    visible=False
+                )
+            )
+        )
+        dataline[k] = go.Scatter(
+            x=stocks.index,
+            y=stocks[k, "Open"],
+            name='Trend',
+            line={'shape': 'spline', 'smoothing': 1})
+        data = [ohlc[k], dataline[k]]
+        fig = go.Figure(data=data, layout=layout)
+        py.plot(fig, filename=str(k) + '.html', auto_open=True)
+
+
+# def table(stocks):
+#     cstocks = stocks.to_csv()
+#     trace = go.Table(
+#         header=dict(values=list(stocks.columns),
+#                     fill=dict(color='#C2D4FF'),
+#                     align=['left'] * 5),
+#         cells=dict(values=[cstocks.T, cstocks.ATVI, cstocks.MSFT],
+#                    fill=dict(color='#F5F8FF'),
+#                    align=['left'] * 5))
+#
+#     data = [trace]
+#     py.plot(data, filename='pandas_table.html', auto_open=True)
+
 
 if __name__ == '__main__':
     main()
