@@ -4,8 +4,6 @@ import pandas as pd
 from alpha_vantage.timeseries import TimeSeries
 import plotly.offline as py
 import plotly.graph_objs as go
-from plotly import tools
-import plotly.figure_factory as ff
 
 def main():
     parser = ag.ArgumentParser(prog='pull', description='Pulls stock data from AlphaVantage.co')
@@ -187,7 +185,7 @@ def cohlc(start_date, end_date, ohlc):
 
     data = [ohlc[k] for k in ohlc]
     fig1 = dict(data=data, layout=layout1)
-    py.plot(fig1, filename='table-right-aligned-plots.html', auto_open=True)
+    py.plot(fig1, filename='combined.html', auto_open=True)
 
 
 if __name__ == '__main__':
